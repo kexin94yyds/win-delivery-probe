@@ -32,6 +32,10 @@ try {
 }
 catch (e) { env.temp_hard_link = `failed: ${e.code} ${e.message}` }
 console.log('ENV', JSON.stringify(env))
+const selfcheck = () => {
+  const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'e2e/selfcheck.ps1'], { encoding: 'utf8', timeout: 5 * 60 * 1000 })
+  return `exit=${r.status}\n${r.stdout}\n${r.stderr}`
+}
 
 const rows = []
 for (const b of builds) {
@@ -44,6 +48,8 @@ for (const b of builds) {
     execFileSync('powershell', ['-NoProfile', '-Command', `Expand-Archive -Force -LiteralPath '${zip}' -DestinationPath '${dir}'`])
   }
   catch (e) { rows.push({ build: b.label, scenario: '-', result: `download failed: ${e.message}` }); continue }
+  // Self-check with this build's processes absent, so its report sections are exercised on real Windows.
+  fs.writeFileSync(path.join(out, `${b.label}.selfcheck.txt`), selfcheck())
   for (const s of scenarios) {
     for (const im of ['iterate.exe', 'mcp-server.exe']) spawnSync('taskkill', ['/F', '/IM', im], { stdio: 'ignore' })
     for (const n of fs.readdirSync(os.tmpdir())) {
